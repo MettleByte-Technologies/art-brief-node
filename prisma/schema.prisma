@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model InitialDesign {
+  id                           String   @id @default(uuid())
+  userId                       Int      @map("user_id") // Future foreign key to users
+  
+  // Design Configuration  
+  businessName                 String   @map("business_name")
+  industryType                 String   @map("industry_type") @db.VarChar(100)
+  designText                   String   @map("design_text") @db.Text
+  bannerSize                   String   @map("banner_size")
+  preferences                  Json     // Colors, style preferences, etc.
+  imageInputs                  Json?    @map("image_inputs") // Array: {url, instructions, panel}
+  contacts                     Json?    // Array: {value, type, panel}
+  
+  // Generated Prompts (final prompts sent to LLM after variable substitution)
+  topPanelPrompt               String   @map("top_panel_prompt") @db.Text // Final prompt sent to LLM for top panel
+  bottomPanelPrompt            String   @map("bottom_panel_prompt") @db.Text // Final prompt sent to LLM for bottom panel
+  topPanelPromptTemplateId     String?  @map("top_panel_prompt_template_id") // Reference to source template (for analytics)
+  bottomPanelPromptTemplateId  String?  @map("bottom_panel_prompt_template_id") // Reference to source template (for analytics)
+  
+  // Generated Output
+  generatedTopPanelImageUrl     String?  @map("generated_top_panel_image_url") @db.Text
+  generatedBottomPanelImageUrl  String?  @map("generated_bottom_panel_image_url") @db.Text
+
+  bucket                       String?  @db.VarChar(255)
+  
+  // Workflow Management
+  status                       String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  errorMessage                 String?  @map("error_message") @db.Text
+  
+  // Timestamps
+  createdAt                    DateTime @map("created_at") @default(now())
+  updatedAt                    DateTime @map("updated_at") @updatedAt
+  
+  @@index([userId])
+  @@map("initial_designs")
+}
+
+model DesignIteration {
+  id                            String   @id @default(uuid())
+  initialDesignId               String   @map("initial_design_id") // FK to initial_designs
+  iterationNumber               Int      @map("iteration_number") // 1, 2, 3, etc.
+  
+  // Iteration Instructions
+  topPanelIterationNotes        String?  @map("top_panel_iteration_notes") @db.Text // Top panel specific changes
+  bottomPanelIterationNotes     String?  @map("bottom_panel_iteration_notes") @db.Text // Bottom panel specific changes
+  
+  // Generated Prompts (final prompts sent to LLM after variable substitution)
+  originalTopPanelPrompt                String?  @map("original_top_panel_prompt") @db.Text // Final prompt sent to LLM for top panel (null if panel not regenerated)
+  originalBottomPanelPrompt             String?  @map("original_bottom_panel_prompt") @db.Text // Final prompt sent to LLM for bottom panel (null if panel not regenerated)
+  originalTopPanelPromptTemplateId      String?  @map("original_top_panel_prompt_template_id") // Reference to source template (for analytics)
+  originalBottomPanelPromptTemplateId   String?  @map("original_bottom_panel_prompt_template_id") // Reference to source template (for analytics)
+  
+  // Generated Output
+  generatedTopPanelIterationImageUrl            String?  @map("generated_top_panel_iteration_image_url") @db.VarChar(255)
+  generatedBottomPanelIterationImageUrl       String?  @map("generated_bottom_panel_iteration_image_url") @db.VarChar(255)
+  bucket                        String?  @db.VarChar(255)
+  
+  // Workflow Management
+  status                        String   @default("PENDING")
+  errorMessage                  String?  @map("error_message") @db.Text
+  
+  // Timestamps
+  createdAt                     DateTime @map("created_at") @default(now())
+  updatedAt                     DateTime @map("updated_at") @updatedAt
+  
+  @@index([initialDesignId])
+  @@index([initialDesignId, iterationNumber])
+  @@map("design_iterations")
+}
+
+model Prompt {
+  id                    String   @id @default(uuid())
+  
+  // Prompt Identification
+  name                  String   @db.VarChar(100) // "Business Banner Top Panel v2"
+  description           String?  @db.Text         // Usage description
+  panelPosition         String   @map("panel_position") // "TOP" or "BOTTOM"
+  
+  // Prompt Content
+  promptTemplate        String   @map("prompt_template") @db.Text // The actual LLM prompt with placeholders
+  
+  // Version Management
+  version               Int      @default(1)
+  isActive              Boolean  @map("is_active") @default(true)
+  isDefault             Boolean  @map("is_default") @default(false) // Default prompt for new designs
+  
+  // Metadata
+  createdBy             String?  @map("created_by") // User who created the prompt
+  
+  // Timestamps
+  createdAt             DateTime @map("created_at") @default(now())
+  updatedAt             DateTime @map("updated_at") @updatedAt
+  
+  @@index([panelPosition, isActive])
+  @@index([isDefault, panelPosition])
+  @@unique([name, version]) // Prevent duplicate name/version combinations
+  @@map("prompts")
+}
+
+model User {
+  id                 Int       @id @default(autoincrement())
+  cognito_user_id    String    @unique
+  username           String    @unique
+  email              String    @unique
+  password           String
+  first_name         String
+  last_name          String
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  status             String?
+  stripe_customer_id String?
+  Last_Login         DateTime?
+
+  @@map("users")
+  @@ignore
+}
+
+
