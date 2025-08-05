@@ -7,6 +7,7 @@ export class LLMService {
   private openai: OpenAI
   private readonly VISION_MODEL = "gpt-4.1-mini"
 
+
   constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPEN_AI_API_KEY,
@@ -81,9 +82,9 @@ export class LLMService {
       );
 
       console.log('=== Initial Design Generation Complete ===');
-      
-      const topImageUrl = await saveBase64Image(topPanelUrl, 'top');
-      const bottomImageUrl = await saveBase64Image(bottomPanelUrl, 'bottom');
+
+      const topImageUrl = await saveBase64Image(topPanelUrl, 'top',initialDesignRecord.id);
+      const bottomImageUrl = await saveBase64Image(bottomPanelUrl, 'bottom',initialDesignRecord.id);
       return {
         topPanelUrl: topImageUrl,
         bottomPanelUrl: bottomImageUrl,
@@ -102,152 +103,152 @@ export class LLMService {
    * Generate design iteration based on iteration notes
    */
   async generateDesignIteration(
-  designIterationRecord: DesignIteration,
-  initialDesignRecord: InitialDesign
-): Promise<{
-  topPanelUrl: string | null; // null if no top panel iteration requested
-  bottomPanelUrl: string | null; // null if no bottom panel iteration requested
-}> {
-  try {
-    console.log('=== Generating Design Iteration ===');
-    console.log('Iteration ID:', designIterationRecord.id);
-    console.log('Initial Design ID:', initialDesignRecord.id);
+    designIterationRecord: DesignIteration,
+    initialDesignRecord: InitialDesign
+  ): Promise<{
+    topPanelUrl: string | null; // null if no top panel iteration requested
+    bottomPanelUrl: string | null; // null if no bottom panel iteration requested
+  }> {
+    try {
+      console.log('=== Generating Design Iteration ===');
+      console.log('Iteration ID:', designIterationRecord.id);
+      console.log('Initial Design ID:', initialDesignRecord.id);
 
-    const shouldRegenerateTop = !!(designIterationRecord.topPanelIterationNotes?.trim());
-    const shouldRegenerateBottom = !!(designIterationRecord.bottomPanelIterationNotes?.trim());
+      const shouldRegenerateTop = !!(designIterationRecord.topPanelIterationNotes?.trim());
+      const shouldRegenerateBottom = !!(designIterationRecord.bottomPanelIterationNotes?.trim());
 
-    console.log('Regenerate top panel:', shouldRegenerateTop);
-    console.log('Regenerate bottom panel:', shouldRegenerateBottom);
+      console.log('Regenerate top panel:', shouldRegenerateTop);
+      console.log('Regenerate bottom panel:', shouldRegenerateBottom);
 
-    if (!shouldRegenerateTop && !shouldRegenerateBottom) {
-      throw new Error('No iteration notes provided for any panel');
-    }
-
-    const contacts = this.parseJsonField(initialDesignRecord.contacts);
-    const imageInputs = this.parseJsonField(initialDesignRecord.imageInputs);
-
-    const topPanelContacts = this.filterContactsByPanel(contacts, 'top');
-    const bottomPanelContacts = this.filterContactsByPanel(contacts, 'bottom');
-    const topPanelImages = this.filterImageInputsByPanel(imageInputs, 'top');
-    const bottomPanelImages = this.filterImageInputsByPanel(imageInputs, 'bottom');
-
-    const topPanelImageContent = this.buildImageInputContent(topPanelImages);
-    const bottomPanelImageContent = this.buildImageInputContent(bottomPanelImages);
-
-    const currentTopPanelUrl = initialDesignRecord.generatedTopPanelImageUrl;
-    const currentBottomPanelUrl = initialDesignRecord.generatedBottomPanelImageUrl;
-
-    let newTopPanelUrl: string | null = null;
-    let newBottomPanelUrl: string | null = null;
-
-    // === TOP PANEL ===
-    if (shouldRegenerateTop) {
-      console.log('Generating top panel iteration...');
-
-      if (!currentTopPanelUrl) {
-        throw new Error('Cannot iterate top panel: no existing top panel image found');
+      if (!shouldRegenerateTop && !shouldRegenerateBottom) {
+        throw new Error('No iteration notes provided for any panel');
       }
 
-      const combinedTopPrompt = this.buildIterationPrompt(
-        designIterationRecord.originalTopPanelPrompt || '',
-        designIterationRecord.topPanelIterationNotes || ''
-      );
+      const contacts = this.parseJsonField(initialDesignRecord.contacts);
+      const imageInputs = this.parseJsonField(initialDesignRecord.imageInputs);
 
-      const topIterationContent: ResponseInputMessageContent[] = [
-        {
-          type: "input_text",
-          text: `Please modify this existing design based on the iteration request.`
-        },
-        {
-          type: "input_image",
-          image_url: currentTopPanelUrl,
-          detail: "high"
-        },
-        ...topPanelImageContent
-      ];
+      const topPanelContacts = this.filterContactsByPanel(contacts, 'top');
+      const bottomPanelContacts = this.filterContactsByPanel(contacts, 'bottom');
+      const topPanelImages = this.filterImageInputsByPanel(imageInputs, 'top');
+      const bottomPanelImages = this.filterImageInputsByPanel(imageInputs, 'bottom');
 
-      const newTopPanelBase64 = await this.generatePanelImage(
-        combinedTopPrompt,
-        topIterationContent
-      );
-      newTopPanelUrl = await saveBase64Image(newTopPanelBase64, 'top');
-    }
+      const topPanelImageContent = this.buildImageInputContent(topPanelImages);
+      const bottomPanelImageContent = this.buildImageInputContent(bottomPanelImages);
 
-    // === BOTTOM PANEL ===
-    if (shouldRegenerateBottom) {
-      console.log('Generating bottom panel iteration...');
+      const currentTopPanelUrl = initialDesignRecord.generatedTopPanelImageUrl;
+      const currentBottomPanelUrl = initialDesignRecord.generatedBottomPanelImageUrl;
 
-      if (!currentBottomPanelUrl) {
-        throw new Error('Cannot iterate bottom panel: no existing bottom panel image found');
-      }
+      let newTopPanelUrl: string | null = null;
+      let newBottomPanelUrl: string | null = null;
 
-      const combinedBottomPrompt = this.buildIterationPrompt(
-        designIterationRecord.originalBottomPanelPrompt || '',
-        designIterationRecord.bottomPanelIterationNotes || ''
-      );
+      // === TOP PANEL ===
+      if (shouldRegenerateTop) {
+        console.log('Generating top panel iteration...');
 
-      const bottomIterationContent: ResponseInputMessageContent[] = [
-        {
-          type: "input_text",
-          text: `Please modify this existing design based on the iteration request.`
-        },
-        {
-          type: "input_image",
-          image_url: currentBottomPanelUrl,
-          detail: "high"
+        if (!currentTopPanelUrl) {
+          throw new Error('Cannot iterate top panel: no existing top panel image found');
         }
-      ];
 
-      if (newTopPanelUrl) {
-        console.log('Adding newly generated top panel for bottom panel consistency...');
-        bottomIterationContent.push({
-          type: "input_text",
-          text: 'This is the updated top panel image, ensure your bottom panel design is consistent with it.'
-        });
-        bottomIterationContent.push({
-          type: "input_image",
-          image_url: newTopPanelUrl,
-          detail: "high"
-        });
-      } else if (currentTopPanelUrl) {
-        console.log('Adding existing top panel for bottom panel consistency...');
-        bottomIterationContent.push({
-          type: "input_text",
-          text: 'This is the current top panel image, ensure your bottom panel design remains consistent with it.'
-        });
-        bottomIterationContent.push({
-          type: "input_image",
-          image_url: currentTopPanelUrl,
-          detail: "high"
-        });
+        const combinedTopPrompt = this.buildIterationPrompt(
+          designIterationRecord.originalTopPanelPrompt || '',
+          designIterationRecord.topPanelIterationNotes || ''
+        );
+
+        const topIterationContent: ResponseInputMessageContent[] = [
+          {
+            type: "input_text",
+            text: `Please modify this existing design based on the iteration request.`
+          },
+          {
+            type: "input_image",
+            image_url: currentTopPanelUrl,
+            detail: "high"
+          },
+          ...topPanelImageContent
+        ];
+
+        const newTopPanelBase64 = await this.generatePanelImage(
+          combinedTopPrompt,
+          topIterationContent
+        );
+        newTopPanelUrl = await saveBase64Image(newTopPanelBase64, 'top', designIterationRecord.id);
       }
 
-      bottomIterationContent.push(...bottomPanelImageContent);
+      // === BOTTOM PANEL ===
+      if (shouldRegenerateBottom) {
+        console.log('Generating bottom panel iteration...');
 
-      const newBottomPanelBase64 = await this.generatePanelImage(
-        combinedBottomPrompt,
-        bottomIterationContent
-      );
-      newBottomPanelUrl = await saveBase64Image(newBottomPanelBase64, 'bottom');
+        if (!currentBottomPanelUrl) {
+          throw new Error('Cannot iterate bottom panel: no existing bottom panel image found');
+        }
+
+        const combinedBottomPrompt = this.buildIterationPrompt(
+          designIterationRecord.originalBottomPanelPrompt || '',
+          designIterationRecord.bottomPanelIterationNotes || ''
+        );
+
+        const bottomIterationContent: ResponseInputMessageContent[] = [
+          {
+            type: "input_text",
+            text: `Please modify this existing design based on the iteration request.`
+          },
+          {
+            type: "input_image",
+            image_url: currentBottomPanelUrl,
+            detail: "high"
+          }
+        ];
+
+        if (newTopPanelUrl) {
+          console.log('Adding newly generated top panel for bottom panel consistency...');
+          bottomIterationContent.push({
+            type: "input_text",
+            text: 'This is the updated top panel image, ensure your bottom panel design is consistent with it.'
+          });
+          bottomIterationContent.push({
+            type: "input_image",
+            image_url: newTopPanelUrl,
+            detail: "high"
+          });
+        } else if (currentTopPanelUrl) {
+          console.log('Adding existing top panel for bottom panel consistency...');
+          bottomIterationContent.push({
+            type: "input_text",
+            text: 'This is the current top panel image, ensure your bottom panel design remains consistent with it.'
+          });
+          bottomIterationContent.push({
+            type: "input_image",
+            image_url: currentTopPanelUrl,
+            detail: "high"
+          });
+        }
+
+        bottomIterationContent.push(...bottomPanelImageContent);
+
+        const newBottomPanelBase64 = await this.generatePanelImage(
+          combinedBottomPrompt,
+          bottomIterationContent
+        );
+        newBottomPanelUrl = await saveBase64Image(newBottomPanelBase64, 'bottom', designIterationRecord.id);
+      }
+
+      console.log('=== Design Iteration Generation Complete ===');
+      console.log('Generated top panel:', !!newTopPanelUrl);
+      console.log('Generated bottom panel:', !!newBottomPanelUrl);
+
+      return {
+        topPanelUrl: newTopPanelUrl,
+        bottomPanelUrl: newBottomPanelUrl,
+      };
+
+    } catch (error) {
+      console.error("Design iteration generation error:", error);
+      if (error instanceof Error) {
+        throw new Error(`Design iteration generation failed: ${error.message}`);
+      }
+      throw new Error("Design iteration generation failed: Unknown error");
     }
-
-    console.log('=== Design Iteration Generation Complete ===');
-    console.log('Generated top panel:', !!newTopPanelUrl);
-    console.log('Generated bottom panel:', !!newBottomPanelUrl);
-
-    return {
-      topPanelUrl: newTopPanelUrl,
-      bottomPanelUrl: newBottomPanelUrl,
-    };
-
-  } catch (error) {
-    console.error("Design iteration generation error:", error);
-    if (error instanceof Error) {
-      throw new Error(`Design iteration generation failed: ${error.message}`);
-    }
-    throw new Error("Design iteration generation failed: Unknown error");
   }
-}
 
   /**
    * Build combined prompt for iterations: original prompt + iteration notes
@@ -358,6 +359,8 @@ Please modify the design according to the iteration request above while maintain
       console.log('Generating panel with prompt length:', prompt.length);
       console.log('Image inputs count:', imageInputs.length);
 
+
+
       // Build the input content for OpenAI
       const inputContent: ResponseInputMessageContent[] = [...imageInputs];
 
@@ -369,6 +372,21 @@ Please modify the design according to the iteration request above while maintain
           detail: "high"
         });
       }
+
+      console.log('OpenAI Request Body:', JSON.stringify({
+        model: this.VISION_MODEL,
+        input: [
+          {
+            role: "system",
+            content: prompt,
+          },
+          {
+            role: "user",
+            content: inputContent,
+          },
+        ],
+        tools: [{ type: "image_generation" }],
+      }, null, 2));
 
       // Make the OpenAI API call
       const response = await this.openai.responses.create({

@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-export async function saveBase64Image(base64Data: string, panel: 'top' | 'bottom'): Promise<string> {
-  const filename = `${panel}-panel-${uuidv4()}.png`;
+export async function saveBase64Image(base64Data: string, panel: 'top' | 'bottom',id: string): Promise<string> {
+  const filename = `${panel}-panel-${id}.png`;
   const outputDir = path.join(__dirname, '../../public/designs');
 
   // Ensure the directory exists
