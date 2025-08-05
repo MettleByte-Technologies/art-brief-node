@@ -99,12 +99,6 @@ export interface PromptVariableContext {
   bannerSize: string;
   preferences: string;
   contacts: string;
-  logoImageUrl?: string; // Optional logo image URL
-  headshotImageUrl?: string; // Optional headshot image URL
-  inspirationImage1Url?: string; // Optional inspiration image URL
-  inspirationImage2Url?: string; // Optional second inspiration image URL
-  style?: string; // Optional style for design
-  colors?: string[]; // Optional colors for design
 }
 
 export interface ImageInput {

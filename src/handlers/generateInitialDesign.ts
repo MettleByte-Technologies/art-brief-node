@@ -49,23 +49,26 @@ export const generateInitialDesignHandler = async (req: Request, res: Response) 
       bottomPanelPrompt = bottomPanelPrompt || defaultPrompts.bottomPanel;
     }
 
-    const variableContext: PromptVariableContext = {
+    const variableContextTop: PromptVariableContext = {
       businessName: validatedRequest.businessName,
       industryType: validatedRequest.industryType,
       designText: validatedRequest.designText,
       bannerSize: validatedRequest.bannerSize,
       preferences: formatPreferences(validatedRequest.preferences),
-      contacts: formatContacts(validatedRequest.contacts),
-      logoImageUrl: validatedRequest.imageInputs?.find(input => input.imageInstructionsForLlm === 'Use as main logo')?.url  ,
-      headshotImageUrl: validatedRequest.imageInputs?.find(input => input.imageInstructionsForLlm === 'This is headshot image.')?.url,
-      inspirationImage1Url: validatedRequest.imageInputs?.find(input => input.imageInstructionsForLlm === 'This is extra inspiration image 1')?.url,
-      inspirationImage2Url: validatedRequest.imageInputs?.find(input => input.imageInstructionsForLlm === 'This is extra inspiration image 2')?.url,
-      style: validatedRequest.preferences?.style,
-      colors: validatedRequest.preferences?.colors || [],
+      contacts: formatContacts(validatedRequest.contacts, 'top'),
     };
 
-    const processedTopPrompt = replacePromptVariables(topPanelPrompt!.promptTemplate, variableContext);
-    const processedBottomPrompt = replacePromptVariables(bottomPanelPrompt!.promptTemplate, variableContext);
+    const variableContextBottom: PromptVariableContext = {
+      businessName: validatedRequest.businessName,
+      industryType: validatedRequest.industryType,
+      designText: validatedRequest.designText,
+      bannerSize: validatedRequest.bannerSize,
+      preferences: formatPreferences(validatedRequest.preferences),
+      contacts: formatContacts(validatedRequest.contacts, 'bottom'),
+    };
+
+    const processedTopPrompt = replacePromptVariables(topPanelPrompt!.promptTemplate, variableContextTop);
+    const processedBottomPrompt = replacePromptVariables(bottomPanelPrompt!.promptTemplate, variableContextBottom);
 
     const initialDesign = await dbService.createInitialDesignRecord(
       validatedRequest,
@@ -97,11 +100,25 @@ export const generateInitialDesignHandler = async (req: Request, res: Response) 
   }
 };
 
+// function replacePromptVariables(template: string, context: PromptVariableContext): string {
+//   return template.replace(/\{(\w+)\}/g, (_, key) => {
+//     const value = (context as any)[key];
+//     if (value === undefined) throw new Error(`Missing value for variable: ${key}`);
+//     return value;
+//   });
+// }
 function replacePromptVariables(template: string, context: PromptVariableContext): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => {
+  return template.replace(/\{(\w+\??)\}/g, (_, rawKey) => {
+    const isOptional = rawKey.endsWith("?");
+    const key = rawKey.replace(/\?$/, ""); // remove '?' if optional
     const value = (context as any)[key];
-    if (value === undefined) throw new Error(`Missing value for variable: ${key}`);
-    return value;
+
+    if (value === undefined || value === null) {
+      if (isOptional) return "";
+      throw new Error(`Missing required value for variable: ${key}`);
+    }
+
+    return String(value);
   });
 }
 
@@ -113,7 +130,52 @@ function formatPreferences(preferences: any): string {
   return parts.join(', ');
 }
 
-function formatContacts(contacts: any): string {
+// function formatContacts(contacts: any): string {
+//   if (!Array.isArray(contacts)) return '';
+//   return contacts.map((c: any) => `${c.type.charAt(0).toUpperCase() + c.type.slice(1)}: ${c.value} + 'Position: ' : ${c.panel}`).join(', ');
+// }
+
+// function formatContacts(contacts: any): string {
+//   if (!Array.isArray(contacts)) return '';
+//   return contacts
+//     .map((c: any) => {
+//       const type = c.type?.charAt(0).toUpperCase() + c.type?.slice(1);
+//       const value = c.value;
+//       const panel = c.panel || 'top'; // default to 'top' if missing
+//       return `${type}: ${value} (Position: ${panel})`;
+//     })
+//     .join(', ');
+// }
+
+// Send only top contacts in top prompt and bottom contacts in bottom prompt
+function formatContacts(contacts: any, panelType: 'top' | 'bottom'): string {
   if (!Array.isArray(contacts)) return '';
-  return contacts.map((c: any) => `${c.type.charAt(0).toUpperCase() + c.type.slice(1)}: ${c.value}`).join(', ');
+
+  return contacts
+    .filter((c: any) => {
+      const panel = c.panel?.toLowerCase() || 'top';
+      return (
+        panel === panelType ||
+        panel === 'top_bottom'
+      );
+    })
+    .map((c: any) => {
+      const type = c.type?.charAt(0).toUpperCase() + c.type?.slice(1);
+      const value = c.value;
+      const panel = c.panel || 'top';
+      return `${type}: ${value} (Position: ${panel})`;
+    })
+    .join(', ');
+}
+
+function formatImageInputs(imageInputs: any[]): string {
+  if (!Array.isArray(imageInputs)) return '';
+  return imageInputs
+    .map((img: any, index: number) => {
+      const instruction = img.imageInstructionsForLlm || 'No instruction';
+      const panel = img.panel || 'top';
+      const shortUrl = img.url?.split('?')[0] || `Image #${index + 1}`;
+      return `Image: ${shortUrl} (Instruction: ${instruction}, Position: ${panel})`;
+    })
+    .join(', ');
 }
