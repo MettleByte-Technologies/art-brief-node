@@ -1,5 +1,5 @@
 import { DatabaseService } from '../services/database';
-import { LLMService } from '../services/llm';
+import { LLMService } from '../services/llm/index_NEW';
 import { ProcessInitialDesignMessage, ProcessDesignIterationMessage } from '../models/types';
 
 export async function processInitialDesignLocal(message: ProcessInitialDesignMessage) {

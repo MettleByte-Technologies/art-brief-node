@@ -2,7 +2,7 @@ import { Prompt } from "@prisma/client";
 import { Request, Response } from "express";
 import { validateGenerateInitialDesignRequest } from "../models/schemas";
 import { DatabaseService } from "../services/database";
-import { LLMService } from '../services/llm';
+import { LLMService } from '../services/llm/index_NEW';
 import {
   GenerateInitialDesignRequest,
   GenerateInitialDesignResponse,

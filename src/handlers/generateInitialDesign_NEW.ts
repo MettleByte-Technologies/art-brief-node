@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { validateGenerateInitialDesignRequest } from '../models/schemas';
 import { DatabaseService } from '../services/database';
-import { GenerateInitialDesignRequest, GenerateInitialDesignResponse, ProcessInitialDesignMessage, PromptVariableContext } from '../models/types copy';
+import { GenerateInitialDesignRequest, GenerateInitialDesignResponse, ProcessInitialDesignMessage, PromptVariableContext } from '../models/types_NEW';
 import { Prompt } from '@prisma/client';
 import { processInitialDesignLocal } from './processDesign';
-import { LLMService } from '../services/llm/index';
+import { LLMService } from '../services/llm/index_NEW';
 import { error } from 'console';
 
 export const generateInitialDesignHandler_NEW = async (req: Request, res: Response) => {

@@ -427,43 +427,5 @@ Please modify the design according to the iteration request above while maintain
     }
   }
 
-  public async generateJsonFromPrompt(prompt: string): Promise<any> {
-  try {
-     const promptString = typeof prompt === "string" 
-      ? prompt 
-      : JSON.stringify(prompt, null, 2);
-    const response = await this.openai.responses.create({
-      model: this.VISION_MODEL, // or another suitable model
-      input: [
-        { role: "system", content: "You are a helpful assistant that generates valid JSON objects based on a prompt." },
-        { role: "user", content: prompt }
-      ],
-      // No image_generation tool here, just normal completion
-    });
-
-    // Extract JSON text from response
-    let rawOutput = response.output_text;
-
-    // Remove Markdown fences if model still adds them
-    let cleanOutput = rawOutput
-      .replace(/```json\s*/g, "")
-      .replace(/```\s*/g, "")
-      .trim();
-    // Parse JSON
-    let parsedJson;
-    try {
-      parsedJson = JSON.parse(cleanOutput);
-    } catch (err) {
-      console.error("Invalid JSON returned by model:", cleanOutput);
-      throw new Error("Model output was not valid JSON");
-    }
-
-    return parsedJson;
-    // Extract JSON string correctly
-    
-  } catch (error) {
-    console.error("JSON generation error:", error);
-    throw new Error(`JSON generation failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-  }
-}
+  
 }
