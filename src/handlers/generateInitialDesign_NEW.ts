@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { validateGenerateInitialDesignRequest } from '../models/schemas';
 import { DatabaseService } from '../services/database';
-import { GenerateInitialDesignRequest, GenerateInitialDesignResponse, ProcessInitialDesignMessage, PromptVariableContext } from '../models/types';
+import { GenerateInitialDesignRequest, GenerateInitialDesignResponse, ProcessInitialDesignMessage, PromptVariableContext } from '../models/types copy';
 import { Prompt } from '@prisma/client';
 import { processInitialDesignLocal } from './processDesign';
+import { LLMService } from '../services/llm/index';
+import { error } from 'console';
 
-export const generateInitialDesignHandler = async (req: Request, res: Response) => {
+export const generateInitialDesignHandler_NEW = async (req: Request, res: Response) => {
   const dbService = new DatabaseService();
 
   try {
@@ -21,7 +23,37 @@ export const generateInitialDesignHandler = async (req: Request, res: Response) 
     }
 
     const validatedRequest = request as GenerateInitialDesignRequest;
+    const llmService = new LLMService();
+    const prompt = `You are an assistant that processes design inputs for a dual-poster vertical banner. 
+    Your task is to analyze the raw input and return ONLY a valid JSON object for each poster (top and bottom) 
+    specifying exactly which elements to include.use name of the object "top" and "bottom"
 
+    For each poster, return:
+    - includeLogo: true/false
+    - includeHeadshot: true/false (top only)
+    - contactValues: list of contact values (after applying the rules)
+    - useInspirationImage: true/false
+    - designText: (always included)
+
+    Rules:
+    - Logo: include if provided
+    - Headshot: include for top only, and only if present
+    - Contacts: include only if their position is ‘top’, ‘bottom’, or ‘top and bottom’, and match the current panel
+    - Inspiration images: use only on bottom poster, and only if they exist
+    - Do not invent any values
+
+    Here is the input JSON:
+    ${JSON.stringify(validatedRequest, null, 2)}
+
+    Return only JSON, no extra text.`; 
+
+    console.log("validatedRequest" , validatedRequest);
+    const generatedJson = await llmService.generateJsonFromPrompt(prompt);
+    console.log("generatedJson", generatedJson);
+    if (!generatedJson) {
+      return res.status(500).json({ success: false, error: 'First API call failed' });
+    }
+    
     // Fetch prompts
     let topPanelPrompt: Prompt | null = null;
     let bottomPanelPrompt: Prompt | null = null;
@@ -48,7 +80,7 @@ export const generateInitialDesignHandler = async (req: Request, res: Response) 
       topPanelPrompt = topPanelPrompt || defaultPrompts.topPanel;
       bottomPanelPrompt = bottomPanelPrompt || defaultPrompts.bottomPanel;
     }
-    const { userId, ...rest } = validatedRequest;
+    
 
     const variableContextTop: PromptVariableContext = {
       businessName: validatedRequest.businessName,
@@ -57,6 +89,9 @@ export const generateInitialDesignHandler = async (req: Request, res: Response) 
       bannerSize: validatedRequest.bannerSize,
       preferences: formatPreferences(validatedRequest.preferences),
       contacts: formatContacts(validatedRequest.contacts, 'top'),
+      includeLogo: generatedJson.top.includeLogo,
+      includeHeadshot: generatedJson.top.includeHeadshot,
+      useInspirationImage: generatedJson.top.useInspirationImage
     };
 
     const variableContextBottom: PromptVariableContext = {
@@ -66,6 +101,9 @@ export const generateInitialDesignHandler = async (req: Request, res: Response) 
       bannerSize: validatedRequest.bannerSize,
       preferences: formatPreferences(validatedRequest.preferences),
       contacts: formatContacts(validatedRequest.contacts, 'bottom'),
+      includeLogo: generatedJson.bottom.includeLogo,
+      includeHeadshot: generatedJson.bottom.includeHeadshot,
+      useInspirationImage: generatedJson.bottom.useInspirationImage
     };
 
     const processedTopPrompt = replacePromptVariables(topPanelPrompt!.promptTemplate, variableContextTop);
@@ -87,7 +125,7 @@ export const generateInitialDesignHandler = async (req: Request, res: Response) 
     // };
     // Process the initial design asynchronously
     const response = await processInitialDesignLocal({ initialDesignId: initialDesign.id, type: 'INITIAL_DESIGN' });
-    return res.status(201).json({ success: true, data: response });
+    return res.status(201).json({ success: true,firstCall: generatedJson, data: response });
 
   } catch (err) {
     console.error(err);

@@ -234,4 +234,14 @@ export class DatabaseService {
   async disconnect(): Promise<void> {
     await this.prisma.$disconnect();
   }
+  async saveJson(data: { prompt: string, generatedJson: any, createdAt: Date }) {
+    // Example with Prisma
+    return  this.prisma.generatedJson.create({
+      data: {
+        prompt: data.prompt,
+        json: JSON.stringify(data.generatedJson),
+        createdAt: data.createdAt
+      }
+    });
+  }
 } 

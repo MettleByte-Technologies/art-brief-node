@@ -129,5 +129,10 @@ model User {
   @@map("users")
   @@ignore
 }
-
+model GeneratedJson {
+  id         Int      @id @default(autoincrement())
+  prompt     String
+  json       String   // Store as text
+  createdAt  DateTime @default(now())
+}
 
